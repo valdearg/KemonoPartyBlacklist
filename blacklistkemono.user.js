@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         Kemono.Party Blacklist
-// @namespace    https://MeusArtis.ca
-// @version      1.2.6
-// @author       Meus Artis
+// @namespace    https://github.com/valdearg/KemonoPartyBlacklist
+// @version      2.0.0
+// @author       Meus Artis, Valdearg
 // @description  Blacklists posts by Creator ID and provides a UI for managing blacklisted terms
 // @icon         https://www.google.com/s2/favicons?domain=kemono.su
 // @updateURL    https://meusartis.ca/blacklistkemono.meta.js
-// @downloadURL  https://meusartis.ca/blacklistkemono.user.js
+// @downloadURL  https://github.com/valdearg/KemonoPartyBlacklist/raw/main/blacklistkemono.user.js
 // @supportURL   https://t.me/kemonoparty
 // @include      /^https:\/\/kemono\.(party|su)\/.*$/
 // @require      https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js
