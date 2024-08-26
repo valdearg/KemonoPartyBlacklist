@@ -1,0 +1,5 @@
+fastapi[standard]
+pydantic
+pyodbc
+cryptography
+mysql-connector-python

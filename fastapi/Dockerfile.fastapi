@@ -1,0 +1,20 @@
+FROM python:bookworm
+
+ENV DEBIAN_FRONTEND noninteractive
+
+WORKDIR /code
+
+COPY ./requirements.txt /code/requirements.txt
+
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+
+COPY ./main.py /code/main.py
+
+RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+
+RUN curl https://packages.microsoft.com/config/debian/12/prod.list | tee /etc/apt/sources.list.d/mssql-release.list
+
+RUN apt-get update && apt-get install -y unixodbc unixodbc-dev
+
+# If running behind a proxy like Nginx or Traefik add --proxy-headers
+CMD ["fastapi", "run", "/code/main.py", "--port", "80", "--proxy-headers"]

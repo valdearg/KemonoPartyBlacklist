@@ -1,0 +1,8 @@
+# create user
+curl -k -X POST -H "Content-Type: application/json" -d '{"user_name": "dfgfdg","admin_key": "TVsSEQRqxoM4C8kv"}' http://127.0.0.1:8080/create_user
+
+# get tags
+curl -k -X GET http://127.0.0.1:8080/get_tags/patreon/7814194
+
+# add tags
+curl -k -X POST -H "Content-Type: application/json" -d '{"user": "7814194","service": "patreon","text": "tag1","user_key": "ZGZnZmRn"}' http://127.0.0.1:8080/create_tags
