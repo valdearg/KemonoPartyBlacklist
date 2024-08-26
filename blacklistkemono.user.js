@@ -5,7 +5,7 @@
 // @author       Meus Artis, Valdearg
 // @description  Blacklists posts by Creator ID and provides a UI for managing blacklisted terms
 // @icon         https://www.google.com/s2/favicons?domain=kemono.su
-// @updateURL    https://meusartis.ca/blacklistkemono.meta.js
+// @updateURL    https://github.com/valdearg/KemonoPartyBlacklist/raw/main/blacklistkemono.meta.js
 // @downloadURL  https://github.com/valdearg/KemonoPartyBlacklist/raw/main/blacklistkemono.user.js
 // @supportURL   https://t.me/kemonoparty
 // @include      /^https:\/\/kemono\.(party|su)\/.*$/
