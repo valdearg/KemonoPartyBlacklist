@@ -20,6 +20,9 @@ const BlacklistButtonArtist = document.createElement("BUTTON");
 const Blacklisted = JSON.parse(localStorage.getItem("blacklist"));
 const BlacklistedText = JSON.parse(localStorage.getItem("blacklist_text"));
 const BlacklistedTags = JSON.parse(localStorage.getItem("blacklist_tags"));
+const ServerBlacklistedTags = JSON.parse(localStorage.getItem("blacklist_tags_server"));
+const BlacklistServerAddress = localStorage.getItem("blacklist_server");
+
 const ButtonArea = document.querySelector('.post__actions');
 const ButtonAreaArtist = document.querySelector('.user-header__actions');
 const HeadMeta = document.querySelector("meta[name='user']");
@@ -44,7 +47,26 @@ if ("blacklist_tags" in BlacklistStorage) {
     console.log("Blacklist Tags Exists");
 } else {
     alert("Blacklist tags does not exist, creating a new one");
-    BlacklistStorage.setItem("blacklist_tags", "[]");
+    BlacklistStorage.setItem("blacklist_tags", "");
+}
+
+if ("blacklist_tags_server" in BlacklistStorage) {
+    console.log("Server Blacklist Tags Exists");
+} else {
+    alert("Blacklist tags does not exist, creating a new one");
+    BlacklistStorage.setItem("blacklist_tags_server", "[]");
+}
+
+if ("blacklist_server" in BlacklistStorage) {
+    console.log("Blacklist server Exists");
+} else {
+    BlacklistStorage.setItem("blacklist_server", "");
+}
+
+if ("blacklist_key" in BlacklistStorage) {
+    console.log("Blacklist key Exists");
+} else {
+    BlacklistStorage.setItem("blacklist_key", "");
 }
 
 var HeadMetaID = document.querySelector("meta[name='id']");
@@ -59,12 +81,14 @@ if (HeadMeta) {
 } else {
     console.log("Blacklist Enabled (Recent Posts/Search Page)");
 }
+
 const UnBlacklist = Blacklisted.indexOf(HeadMetaID);
 document.head.appendChild(styleSheet);
 styleSheet.innerText = styles;
 styleSheet.type = "text/css";
 BlacklistButton.classList.add("creator__blacklist");
 BlacklistButton.type = "button";
+
 if (Blacklisted.indexOf(HeadMetaID) !== -1) {
     BlacklistButton.innerHTML = '<span class="creator__blacklist-icon">⛒</span><span>Blacklisted</span>';
     BlacklistButton.onclick = function () {
@@ -82,6 +106,7 @@ if (Blacklisted.indexOf(HeadMetaID) !== -1) {
         location.reload();
     };
 }
+
 Blacklisted.forEach(function (item) {
     $("article[data-user='" + item + "']").remove();
 });
@@ -133,18 +158,17 @@ waitForElementToDisplay("#paginator-top > menu", function () {
     });
 
     BlacklistedText.forEach(function (item) {
-        console.log("Blacklisted item: " + item);
+        //console.log("Blacklisted item: " + item);
 
         $("header.post-card__header").each(function () {
             let headerText = $(this).text();
             if (headerText.includes(item)) {
-                $(this).closest("article").remove(); // Remove the closest <a> parent element
+                $(this).closest("article").remove();
             }
         });
 
     });
 
-    // Function to fetch data with retry mechanism
     async function fetchDataWithRetry(url, retries = 5, delay = 2000) {
         for (let i = 0; i < retries; i++) {
             try {
@@ -172,60 +196,182 @@ waitForElementToDisplay("#paginator-top > menu", function () {
 
     const apiURL = currentPageUrl.replace(".su/", ".su/api/v1/")
 
-    console.log(apiURL)
+    if (!window.location.pathname.includes("favorites")) {
+        fetchDataWithRetry(apiURL)
+            .then(data => {
+                //console.log('Data fetched successfully:', data);
 
-    // Example usage
-    fetchDataWithRetry(apiURL)
-        .then(data => {
-            console.log('Data fetched successfully:', data);
+                if (BlacklistedTags && BlacklistedTags.length > 0) {
+                    data.forEach(post => {
+                        //console.log(`Processing post ID: ${post.id}`);
 
-            if (BlacklistedTags && BlacklistedTags.length > 0) {
-                data.forEach(post => {
-                    console.log(`Processing post ID: ${post.id}`);
+                        if (post.tags) {
+                            // Parsing the tags field
+                            try {
+                                // Remove the curly braces and double quotes
+                                //console.log(`Tags for post ID: ${post.id}: ${post.tags}`)
+                                const tagsString = post.tags.toString().replace(/[\{\}"]/g, '');
 
-                    if (post.tags) {
-                        // Parsing the tags field
-                        try {
-                            // Remove the curly braces and double quotes
-                            const tagsString = post.tags.replace(/[\{\}"]/g, '');
+                                // Split the string into an array of tags
+                                const tagsArray = tagsString.split(',');
 
-                            // Split the string into an array of tags
-                            const tagsArray = tagsString.split(',');
+                                //console.log(`Tags for post ID ${post.id}:`, tagsArray);
 
-                            console.log(`Tags for post ID ${post.id}:`, tagsArray);
+                                // Loop through each tag
+                                tagsArray.forEach(tag => {
+                                    //console.log(`Tag: ${tag.trim()}`);
 
-                            // Loop through each tag
-                            tagsArray.forEach(tag => {
-                                console.log(`Tag: ${tag.trim()}`);
+                                    BlacklistedTags.forEach(function (item) {
+                                        //console.log("Blacklisted tags: " + item);
 
-                                BlacklistedTags.forEach(function (item) {
-                                    console.log("Blacklisted tags: " + item);
+                                        // Select the article with the matching data-id attribute
+                                        const postElement = $(`article[data-id="${post.id}"]`);
 
-                                    // Select the article with the matching data-id attribute
-                                    const postElement = $(`article[data-id="${post.id}"]`);
+                                        if (postElement.length > 0) {
+                                            //console.log(`Post ID ${post.id} found in DOM.`);
 
-                                    if (postElement.length > 0) {
-                                        console.log(`Post ID ${post.id} found in DOM.`);
-
-                                        // Check if any of the tags match the blacklisted items
-                                        if (tagsArray.some(t => t.trim() === item)) {
-                                            postElement.remove(); // Remove the entire <article> element
-                                            console.log(`Removed post ID ${post.id} from DOM.`);
+                                            // Check if any of the tags match the blacklisted items
+                                            if (tagsArray.some(t => t.trim() === item)) {
+                                                postElement.remove(); // Remove the entire <article> element
+                                                //console.log(`Removed post ID ${post.id} from DOM.`);
+                                            }
                                         }
-                                    }
-                                });
+                                    });
 
-                            });
-                        } catch (e) {
-                            console.error(`Error parsing tags for post ID ${post.id}:`, e);
+                                });
+                            } catch (e) {
+                                console.error(`Error parsing tags for post ID ${post.id}:`, e);
+                            }
                         }
-                    }
-                });
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Failed to fetch data:', error);
+            });
+    }
+
+    const serverAddress = localStorage.getItem("blacklist_server");
+
+    if (window.location.pathname.includes("/user/") && serverAddress.includes("http")) {
+        async function addTagsToHeader() {
+
+            const urlParts = window.location.href.split("/");
+
+            const userId = urlParts[urlParts.length - 1];
+            const service = urlParts[urlParts.length - 3];
+
+            console.log("User ID:", userId);
+            console.log("Service:", service);
+
+            const apiUrl = `${serverAddress}/get_tags/${service}/${userId}`;
+
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch tags');
+                }
+
+                const tagsData = await response.json();
+                let tagsArray = tagsData.tags;
+
+                if (typeof tagsArray === 'string') {
+                    tagsArray = tagsArray.split(',').map(tag => tag.trim());
+                }
+
+                const numberOfTags = tagsArray.length;
+                const tagsString = tagsArray.join(', ');
+
+                const tagsDiv = document.createElement('div');
+                tagsDiv.className = 'user-header__tags';
+                tagsDiv.innerHTML = `<strong>Tags:</strong> ${tagsString}`;
+
+                const userInfoDiv = document.querySelector('.user-header__info');
+                userInfoDiv.appendChild(tagsDiv);
+
+                const serverKey = localStorage.getItem("blacklist_key");
+
+                if (serverKey.length > 1) {
+                    // Add the "Add Tags" button and input field
+                    const addTagsDiv = document.createElement('div');
+                    addTagsDiv.className = 'user-header__add-tags';
+
+                    const addTagsButton = document.createElement('button');
+                    addTagsButton.textContent = 'Add Tags';
+                    addTagsButton.id = 'add-tags-button';
+
+                    const tagsInput = document.createElement('input');
+                    tagsInput.type = 'text';
+                    tagsInput.id = 'tags-input';
+                    tagsInput.placeholder = 'Enter new tags...';
+                    tagsInput.style.display = 'none';
+
+                    const submitButton = document.createElement('button');
+                    submitButton.textContent = 'Submit';
+                    submitButton.id = 'submit-tags-button';
+                    submitButton.style.display = 'none';
+
+                    addTagsButton.addEventListener('click', () => {
+                        tagsInput.style.display = 'inline-block';
+                        submitButton.style.display = 'inline-block';
+                    });
+
+                    submitButton.addEventListener('click', async () => {
+                        const newTags = tagsInput.value.trim();
+
+                        if (newTags === '') {
+                            alert('Please enter tags.');
+                            return;
+                        }
+
+                        try {
+                            const postApiUrl = `${serverAddress}/create_tags`;
+                            const payload = {
+                                user: userId,
+                                service: service,
+                                text: newTags,
+                                user_key: serverKey
+                            };
+
+                            const postResponse = await fetch(postApiUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(payload)
+                            });
+
+                            if (!postResponse.ok) {
+                                throw new Error('Failed to add tags');
+                            }
+
+                            alert('Tags added successfully!');
+                            tagsInput.value = ''; // Clear the input field
+                            tagsInput.style.display = 'none';
+                            submitButton.style.display = 'none';
+
+                            location.reload();
+                        } catch (error) {
+                            console.error('Error adding tags:', error);
+                            alert('Failed to add tags.');
+                        }
+                    });
+
+                    addTagsDiv.appendChild(addTagsButton);
+                    addTagsDiv.appendChild(tagsInput);
+                    addTagsDiv.appendChild(submitButton);
+
+                    userInfoDiv.appendChild(addTagsDiv);
+                }
+
+            } catch (error) {
+                console.error('Error fetching or displaying tags:', error);
             }
-        })
-        .catch(error => {
-            console.error('Failed to fetch data:', error);
-        });
+        }
+
+        // Call the function to add tags to the header
+        addTagsToHeader();
+    }
 
 }, 100, 30000); //page takes longer than 30 seconds to load? (as it sometimes does), rip you then
 
@@ -260,7 +406,7 @@ waitForElementToDisplay("#paginator-top > menu", function () {
         border-radius: 8px;
         box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
         z-index: 1000;
-        width: 600px; /* Fixed width */
+        width: 750px; /* Fixed width */
         height: 400px; /* Fixed height */
         overflow: hidden; /* Hide overflow initially */
     }
@@ -312,8 +458,23 @@ waitForElementToDisplay("#paginator-top > menu", function () {
         display: block;
     }
 
+    #blacklist-server {
+        display: block; /* Make the button a block-level element */
+        width: 100%;     /* Set the width to 100% of its parent container */
+        padding: 10px;   /* Add padding for better appearance */
+        font-size: 16px; /* Adjust the font size if needed */
+        background-color: #007BFF; /* Background color of the button */
+        color: white;    /* Text color */
+        border: none;    /* Remove default border */
+        border-radius: 4px; /* Rounded corners */
+        cursor: pointer; /* Change cursor to pointer on hover */
+        text-align: center; /* Center-align text inside the button */
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Optional shadow */
+    }
+
     #blacklist-popup input[type="text"] {
-        width: calc(100% - 20px); /* Full width minus padding */
+        /* width: calc(100% - 20px); */
+        width: 100%;
         padding: 10px;
         border: 1px solid var(--input-border, #ddd);
         border-radius: 8px;
@@ -399,7 +560,7 @@ waitForElementToDisplay("#paginator-top > menu", function () {
         z-index: 999;
     }
 
-    #blacklist-add, #blacklist-text-add, #blacklist-tags-add {
+    #blacklist-add, #blacklist-text-add, #blacklist-tags-add, #blacklist-server-clear, #blacklist-server-save, #blacklist-key-clear, #blacklist-key-save, #server-blacklist-tags-add {
         display: block; /* Make the button a block-level element */
         width: 100%;     /* Set the width to 100% of its parent container */
         padding: 10px;   /* Add padding for better appearance */
@@ -484,6 +645,7 @@ waitForElementToDisplay("#paginator-top > menu", function () {
                 <div class="tab active" data-tab="blacklist-content">Blacklist</div>
                 <div class="tab" data-tab="blacklist-text-content">Blacklist Text</div>
                 <div class="tab" data-tab="blacklist-tags-content">Blacklist Tags</div>
+                <div class="tab" data-tab="server-blacklist-tags-content">Server Tags</div>
                 <div class="tab" data-tab="backup-content">Misc</div>
             </div>
             <div class="tab-content active" id="blacklist-content">
@@ -500,6 +662,12 @@ waitForElementToDisplay("#paginator-top > menu", function () {
                 <input type="text" id="blacklist-tags-input" placeholder="Enter tags to blacklist...">
                 <button id="blacklist-tags-add">Add</button>
                 <ul id="blacklist-tags-list"></ul>
+            </div>
+            <div class="tab-content" id="server-blacklist-tags-content">
+                <input type="text" id="server-blacklist-tags-input" placeholder="Enter tag to blacklist...">
+                <button id="server-blacklist-tags-add">Add</button>
+
+                <ul id="server-blacklist-tags-list"></ul>
             </div>
             <div class="tab-content" id="backup-content">
                 <table>
@@ -520,6 +688,18 @@ waitForElementToDisplay("#paginator-top > menu", function () {
                         <th><input type="file" id="restore-blacklist-tags-file" accept=".json"></th>
                         <th><button id="restore-blacklist-tags-json">Restore</button></th>
                     </tr>
+
+                    <tr>
+                        <th><button id="blacklist-server-clear">Clear</button></th>
+                        <th><input type="text" id="blacklist-server" placeholder="Enter server address"></th>
+                        <th><button id="blacklist-server-save">Save</button></th>
+                    </tr>
+
+                    <tr>
+                        <th><button id="blacklist-key-clear">Clear</button></th>
+                        <th><input type="text" id="blacklist-key" placeholder="Enter key"></th>
+                        <th><button id="blacklist-key-save">Save</button></th>
+                    </tr>
                 </table>
             </div>
         `;
@@ -536,12 +716,15 @@ waitForElementToDisplay("#paginator-top > menu", function () {
             loadBlacklist();
             loadBlacklistText();
             loadBlacklistTags();
+            loadServerSetting();
+            loadKeySetting();
+            loadServerBlacklistTags();
         });
 
         overlay.addEventListener('click', () => {
             overlay.style.display = 'none';
             popup.style.display = 'none';
-            location.reload();  // Reload the page when closing the popup
+            location.reload();
         });
 
         document.getElementById('blacklist-add').addEventListener('click', () => {
@@ -574,6 +757,17 @@ waitForElementToDisplay("#paginator-top > menu", function () {
                 BlacklistStorage.setItem('blacklist_tags', JSON.stringify(BlacklistedTags));
                 input.value = '';
                 loadBlacklistTags();
+            }
+        });
+
+        document.getElementById('server-blacklist-tags-add').addEventListener('click', () => {
+            const input = document.getElementById('server-blacklist-tags-input');
+            const value = input.value.trim();
+            if (value) {
+                ServerBlacklistedTags.push(value);
+                BlacklistStorage.setItem('blacklist_tags_server', JSON.stringify(ServerBlacklistedTags));
+                input.value = '';
+                loadServerBlacklistTags();
             }
         });
 
@@ -630,6 +824,74 @@ waitForElementToDisplay("#paginator-top > menu", function () {
                 list.appendChild(li);
             });
         }
+
+        function loadServerBlacklistTags() {
+            const list = document.getElementById('server-blacklist-tags-list');
+            list.innerHTML = '';
+            ServerBlacklistedTags.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.textContent = item;
+                const removeButton = document.createElement('button');
+                removeButton.textContent = 'Remove';
+                removeButton.addEventListener('click', () => {
+                    ServerBlacklistedTags.splice(index, 1);
+                    BlacklistStorage.setItem('blacklist_tags_server', JSON.stringify(ServerBlacklistedTags));
+                    loadServerBlacklistTags();
+                });
+                li.appendChild(removeButton);
+                list.appendChild(li);
+            });
+        }
+
+        // Save the server address to localStorage
+        document.getElementById("blacklist-server-save").addEventListener("click", function () {
+            const serverAddress = document.getElementById("blacklist-server").value;
+            if (serverAddress) {
+                localStorage.setItem("blacklist_server", serverAddress);
+                alert("Server address saved.");
+            } else {
+                alert("Please enter a valid server address.");
+            }
+        });
+
+        function loadServerSetting() {
+            const serverAddress = localStorage.getItem("blacklist_server");
+            if (serverAddress) {
+                document.getElementById("blacklist-server").value = serverAddress;
+            }
+        }
+
+        // Clear the server address from localStorage
+        document.getElementById("blacklist-server-clear").addEventListener("click", function () {
+            localStorage.removeItem("blacklist_server");
+            document.getElementById("blacklist-server").value = ""; // Clear the input field
+            alert("Server address cleared.");
+        });
+
+        // Save the server address to localStorage
+        document.getElementById("blacklist-key-save").addEventListener("click", function () {
+            const serverAddress = document.getElementById("blacklist-key").value;
+            if (serverAddress) {
+                localStorage.setItem("blacklist_key", serverAddress);
+                alert("Server key saved.");
+            } else {
+                alert("Please enter a valid key address.");
+            }
+        });
+
+        function loadKeySetting() {
+            const serverKey = localStorage.getItem("blacklist_key");
+            if (serverKey) {
+                document.getElementById("blacklist-key").value = serverKey;
+            }
+        }
+
+        // Clear the server address from localStorage
+        document.getElementById("blacklist-key-clear").addEventListener("click", function () {
+            localStorage.removeItem("blacklist_key");
+            document.getElementById("blacklist-key").value = ""; // Clear the input field
+            alert("Server key cleared.");
+        });
 
         function handleTabSwitch() {
             const tabs = document.querySelectorAll('#blacklist-popup .tab');
