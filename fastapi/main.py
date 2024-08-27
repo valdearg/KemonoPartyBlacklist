@@ -5,10 +5,22 @@ import pyodbc
 from pydantic import BaseModel
 import mysql.connector
 from mysql.connector import Error
+import uuid
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+allow_origins = ['*']
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class UserInfo(BaseModel):
     user_name: str
@@ -27,7 +39,8 @@ async def receive_user_info(user_info: UserInfo):
 
     if received_data['user_name']:
         print(f"Username: {received_data['user_name']}")
-        username_encoded = base64.b64encode(received_data['user_name'].encode()).decode('utf-8')
+        #username_encoded = base64.b64encode(received_data['user_name'].encode()).decode('utf-8')
+        username_encoded = str(uuid.uuid4())
         print(username_encoded)
 
     if received_data['admin_key'] != os.environ["ADMIN_KEY"]:
@@ -64,7 +77,7 @@ async def receive_user_info(user_info: UserInfo):
             connection.commit()
             return {
                 "message": "User created",
-                "data": received_data["username"],
+                "data": username_encoded,
             }
 
     except Error as e:
@@ -74,6 +87,48 @@ async def receive_user_info(user_info: UserInfo):
             cursor.close()
             connection.close()
             print("MySQL connection is closed") 
+
+@app.post("/get_user")
+async def receive_user_info(user_info: UserInfo):
+    # You can access the received data through the `user_info` variable
+    received_data = user_info.dict()
+
+    if received_data['admin_key'] != os.environ["ADMIN_KEY"]:
+        return {
+            "message": "Admin key is incorrect",
+            "data": received_data["user_name"],
+        }        
+
+    try:
+        # Establish the connection
+        connection = mysql.connector.connect(
+            host=os.environ["SERVER"],
+            database=os.environ["DATABASE"],
+            user=os.environ["UID"],
+            password=os.environ["PWD"]
+        )
+        
+        if connection.is_connected():
+            db_info = connection.get_server_info()
+            print(f"Connected to MySQL Server version {db_info}")
+            cursor = connection.cursor()
+            cursor.execute(f"SELECT username_encrypted FROM users WHERE `username` = '{received_data['user_name']}';")
+            record = cursor.fetchone()
+            
+            if record:
+                return {
+                    "message": "User exists",
+                    "data": record,
+                }
+
+    except Error as e:
+        print(f"Error while connecting to MySQL: {e}")
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+            print("MySQL connection is closed") 
+
 
 @app.get("/get_tags/{service}/{user}")
 async def receive_get_tags(service, user):
@@ -100,9 +155,14 @@ async def receive_get_tags(service, user):
             if record:
                 return {
                     "message": "OK",
-                    "data": record,
+                    "tags": record,
                 }
-
+            else:
+                return {
+                    "message": "OK",
+                    "tags": "No tags located",
+                }
+            
     except Error as e:
         print(f"Error while connecting to MySQL: {e}")
     finally:
