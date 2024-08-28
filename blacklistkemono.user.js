@@ -225,19 +225,13 @@ waitForElementToDisplay("#paginator-top > menu", function () {
         async function removeTaggedArtists() {
             const userCardLinks = document.querySelectorAll('article');
 
-            console.log("Running posts function: ", userCardLinks)
-
             for (const link of userCardLinks) {
-                console.log(link)
                 const hrefValue = link.lastElementChild.getAttribute('href');
 
                 const urlParts = hrefValue.split("/");
 
                 const service = urlParts[1];
                 const userId = urlParts[3];
-
-                console.log("User ID:", userId);
-                console.log("Service:", service);
 
                 const serverAddress = localStorage.getItem("blacklist_server");
 
@@ -253,7 +247,6 @@ waitForElementToDisplay("#paginator-top > menu", function () {
                     let tagsArray = tagsData.tags;
 
                     if (tagsArray === "No tags located") {
-                        console.log("No tags")
                     }
                     else {
                         console.log("Tags array:", tagsArray)
@@ -265,10 +258,6 @@ waitForElementToDisplay("#paginator-top > menu", function () {
                                     console.log("Matched tag:", tag.toString(), blacklistedTag);
                                     //link.closest("article").remove();
                                     $("a[href='" + hrefValue + "']").closest("article").remove();
-
-                                }
-                                else {
-                                    console.log("Tag does not match:", tag.toString(), blacklistedTag);
                                 }
                             });
                         });
@@ -310,7 +299,7 @@ waitForElementToDisplay("#paginator-top > menu", function () {
 
     const apiURL = currentPageUrl.replace(".su/", ".su/api/v1/")
 
-    const apiExcludedPaths = ["favorites", "updated"];
+    const apiExcludedPaths = ["favorites", "updated", "dms", "artists"];
 
     if (!apiExcludedPaths.some(path => window.location.pathname.includes(path))) {
         fetchDataWithRetry(apiURL)
@@ -468,6 +457,51 @@ waitForElementToDisplay("#paginator-top > menu", function () {
         // Call the function to add tags to the header
         addTagsToHeader();
     }
+
+    if (window.location.pathname.includes("/dms")) {
+        // make subscribed users yellow?
+        async function tagFavouritedUsersDMs() {
+            const userCardLinks = document.querySelectorAll('header');
+
+            console.log("Running article search:", userCardLinks)
+
+            const apiUrl = "https://kemono.su/api/v1/account/favorites";
+
+            const response = await fetch(apiUrl);
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch tags');
+            }
+
+            const favouritesData = await response.json();
+
+            for (const link of userCardLinks) {
+                const hrefValue = link.firstElementChild.getAttribute('href')
+
+                try {
+                    favouritesData.forEach(function (favourite) {
+                        favouriteUrl = `/${favourite["service"]}/user/${favourite["id"]}`
+
+                        if (favouriteUrl === hrefValue) {
+                            console.log("Matched tag:", favouriteUrl, hrefValue);
+
+                            //$(link).closest("article").remove();
+
+                            link.style.borderColor = 'blue';  // You can replace 'blue' with any desired color
+                            link.style.borderWidth = '2px';   // Optionally, adjust the border width
+                            link.style.borderStyle = 'solid'; // Ensure the border is visible by setting a style
+                        }
+                    });
+
+                } catch (error) {
+                    console.error('Error fetching or displaying tags:', error);
+                }
+
+            }
+        }
+        tagFavouritedUsersDMs()
+    }
+
 
 }, 100, 30000); //page takes longer than 30 seconds to load? (as it sometimes does), rip you then
 
