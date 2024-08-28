@@ -131,7 +131,6 @@ function waitForElementToDisplay(selector, callback, checkFrequencyInMs, timeout
 waitForElementToDisplay("#paginator-top > menu", function () {
     window.addEventListener('hashchange', function () {
         Blacklisted.forEach(function (item) {
-            console.log("Item: " + item);
             $("a[href='/patreon/user/" + item + "']").remove(); //for recently updated
             $("a[href='/fanbox/user/" + item + "']").remove(); //this only works for the 100ms after a page load before it reloads itself (why?)
             $("a[href='/gumroad/user/" + item + "']").remove(); //i dont get paid for this, im not a developer, i dont know javascript, regex doesnt work, stop reading my comments, fuck you.
@@ -144,7 +143,6 @@ waitForElementToDisplay("#paginator-top > menu", function () {
         });
     });
     Blacklisted.forEach(function (item) {
-        console.log("Item: " + item);
         $("a[href='/patreon/user/" + item + "']").remove(); //for recently updated
         $("a[href='/fanbox/user/" + item + "']").remove(); //this only works for the 100ms after a page load before it reloads itself (why?)
         $("a[href='/gumroad/user/" + item + "']").remove(); //i dont get paid for this, im not a developer, i dont know javascript, regex doesnt work, stop reading my comments, fuck you.
@@ -158,8 +156,6 @@ waitForElementToDisplay("#paginator-top > menu", function () {
     });
 
     BlacklistedText.forEach(function (item) {
-        //console.log("Blacklisted item: " + item);
-
         $("header.post-card__header").each(function () {
             let headerText = $(this).text();
             if (headerText.includes(item)) {
@@ -168,6 +164,124 @@ waitForElementToDisplay("#paginator-top > menu", function () {
         });
 
     });
+
+    if (ServerBlacklistedTags && ServerBlacklistedTags.length > 0 && window.location.href.includes("artists")) {
+        async function removeTaggedArtists() {
+            const userCardLinks = document.querySelectorAll('.user-card');
+
+            for (const link of userCardLinks) {
+                const hrefValue = link.getAttribute('href');
+
+                const urlParts = hrefValue.split("/");
+
+                const service = urlParts[1];
+                const userId = urlParts[3];
+
+                const serverAddress = localStorage.getItem("blacklist_server");
+
+                const apiUrl = `${serverAddress}/get_tags/${service}/${userId}`;
+
+                try {
+                    const response = await fetch(apiUrl);
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch tags');
+                    }
+
+                    const tagsData = await response.json();
+                    let tagsArray = tagsData.tags;
+
+                    if (tagsArray === "No tags located") {
+                        //console.log("No tags")
+                    }
+                    else {
+                        console.log("Tags array:", tagsArray)
+
+                        ServerBlacklistedTags.forEach(function (blacklistedTag) {
+                            // Check if any of the tags in tagsArray match the blacklistedTag
+                            tagsArray.forEach(function (tag) {
+                                if (tag.toString() === blacklistedTag) {
+                                    console.log("Matched tag:", tag.toString(), blacklistedTag);
+                                    //link.closest("article").remove();
+                                    $("a[href='" + hrefValue + "']").remove();
+
+                                }
+                                else {
+                                    //console.log("Tag does not match:", tag.toString(), blacklistedTag);
+                                }
+                            });
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error fetching or displaying tags:', error);
+                }
+
+            }
+        }
+
+        removeTaggedArtists();
+    }
+
+    if (ServerBlacklistedTags && ServerBlacklistedTags.length > 0 && window.location.href.includes("posts")) {
+        async function removeTaggedArtists() {
+            const userCardLinks = document.querySelectorAll('article');
+
+            console.log("Running posts function: ", userCardLinks)
+
+            for (const link of userCardLinks) {
+                console.log(link)
+                const hrefValue = link.lastElementChild.getAttribute('href');
+
+                const urlParts = hrefValue.split("/");
+
+                const service = urlParts[1];
+                const userId = urlParts[3];
+
+                console.log("User ID:", userId);
+                console.log("Service:", service);
+
+                const serverAddress = localStorage.getItem("blacklist_server");
+
+                const apiUrl = `${serverAddress}/get_tags/${service}/${userId}`;
+
+                try {
+                    const response = await fetch(apiUrl);
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch tags');
+                    }
+
+                    const tagsData = await response.json();
+                    let tagsArray = tagsData.tags;
+
+                    if (tagsArray === "No tags located") {
+                        console.log("No tags")
+                    }
+                    else {
+                        console.log("Tags array:", tagsArray)
+
+                        ServerBlacklistedTags.forEach(function (blacklistedTag) {
+                            // Check if any of the tags in tagsArray match the blacklistedTag
+                            tagsArray.forEach(function (tag) {
+                                if (tag.toString() === blacklistedTag) {
+                                    console.log("Matched tag:", tag.toString(), blacklistedTag);
+                                    //link.closest("article").remove();
+                                    $("a[href='" + hrefValue + "']").closest("article").remove();
+
+                                }
+                                else {
+                                    console.log("Tag does not match:", tag.toString(), blacklistedTag);
+                                }
+                            });
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error fetching or displaying tags:', error);
+                }
+
+            }
+        }
+
+        removeTaggedArtists();
+    }
 
     async function fetchDataWithRetry(url, retries = 5, delay = 2000) {
         for (let i = 0; i < retries; i++) {
@@ -196,48 +310,30 @@ waitForElementToDisplay("#paginator-top > menu", function () {
 
     const apiURL = currentPageUrl.replace(".su/", ".su/api/v1/")
 
-    if (!window.location.pathname.includes("favorites")) {
+    const apiExcludedPaths = ["favorites", "updated"];
+
+    if (!apiExcludedPaths.some(path => window.location.pathname.includes(path))) {
         fetchDataWithRetry(apiURL)
             .then(data => {
-                //console.log('Data fetched successfully:', data);
-
+                // blacklist by post tags
                 if (BlacklistedTags && BlacklistedTags.length > 0) {
                     data.forEach(post => {
-                        //console.log(`Processing post ID: ${post.id}`);
-
                         if (post.tags) {
-                            // Parsing the tags field
                             try {
-                                // Remove the curly braces and double quotes
-                                //console.log(`Tags for post ID: ${post.id}: ${post.tags}`)
                                 const tagsString = post.tags.toString().replace(/[\{\}"]/g, '');
 
-                                // Split the string into an array of tags
                                 const tagsArray = tagsString.split(',');
 
-                                //console.log(`Tags for post ID ${post.id}:`, tagsArray);
-
-                                // Loop through each tag
                                 tagsArray.forEach(tag => {
-                                    //console.log(`Tag: ${tag.trim()}`);
-
                                     BlacklistedTags.forEach(function (item) {
-                                        //console.log("Blacklisted tags: " + item);
-
-                                        // Select the article with the matching data-id attribute
                                         const postElement = $(`article[data-id="${post.id}"]`);
 
                                         if (postElement.length > 0) {
-                                            //console.log(`Post ID ${post.id} found in DOM.`);
-
-                                            // Check if any of the tags match the blacklisted items
                                             if (tagsArray.some(t => t.trim() === item)) {
                                                 postElement.remove(); // Remove the entire <article> element
-                                                //console.log(`Removed post ID ${post.id} from DOM.`);
                                             }
                                         }
                                     });
-
                                 });
                             } catch (e) {
                                 console.error(`Error parsing tags for post ID ${post.id}:`, e);
